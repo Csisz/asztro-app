@@ -14,6 +14,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { hu } from '@/i18n/hu';
 
 export default function AppTabs() {
   return (
@@ -22,10 +23,13 @@ export default function AppTabs() {
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href="/index" asChild>
-            <TabButton>Home</TabButton>
+            <TabButton>{hu.tabs.profile}</TabButton>
           </TabTrigger>
-          <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Explore</TabButton>
+          <TabTrigger name="oracle" href="/oracle" asChild>
+            <TabButton>{hu.tabs.oracle}</TabButton>
+          </TabTrigger>
+          <TabTrigger name="match" href="/match" asChild>
+            <TabButton>{hu.tabs.match}</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -55,7 +59,7 @@ export function CustomTabList(props: TabListProps) {
     <View {...props} style={styles.tabListContainer}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
-          Expo Starter
+          {hu.common.appName}
         </ThemedText>
 
         {props.children}

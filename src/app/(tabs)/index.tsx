@@ -1,16 +1,57 @@
-import { StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { PulsingLoader } from '@/components/pulsing-loader';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useProfile } from '@/context/profile-context';
 import { hu } from '@/i18n/hu';
 import { getChineseSign } from '@/lib/chineseZodiac';
+import { loadCachedPersonality, savePersonalityCache } from '@/lib/personalityCache';
+import type { Profile } from '@/lib/profile';
 import { getWesternSign } from '@/lib/westernZodiac';
+import { aiService } from '@/services/ai';
 
 export default function ProfileScreen() {
   const { profile } = useProfile();
+  const [personality, setPersonality] = useState<string | null>(null);
+  const [isLoadingPersonality, setIsLoadingPersonality] = useState(false);
+  const [personalityError, setPersonalityError] = useState(false);
+
+  const generateAndCache = useCallback(async (currentProfile: Profile) => {
+    setIsLoadingPersonality(true);
+    setPersonalityError(false);
+    try {
+      const text = await aiService.generatePersonality(currentProfile);
+      setPersonality(text);
+      await savePersonalityCache(currentProfile, text);
+    } catch {
+      setPersonalityError(true);
+    } finally {
+      setIsLoadingPersonality(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+
+    void (async () => {
+      const cached = await loadCachedPersonality(profile);
+      if (cancelled) return;
+      if (cached) {
+        setPersonality(cached);
+      } else {
+        void generateAndCache(profile);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile, generateAndCache]);
 
   if (!profile) {
     return null;
@@ -65,6 +106,26 @@ export default function ProfileScreen() {
             </ThemedText>
           </ThemedView>
         </ThemedView>
+
+        <ThemedView type="backgroundElement" style={styles.card}>
+          <ThemedView style={styles.personalityHeader}>
+            <ThemedText type="subtitle">{hu.profile.personalityTitle}</ThemedText>
+            <Pressable
+              onPress={() => generateAndCache(profile)}
+              disabled={isLoadingPersonality}
+              style={({ pressed }) => pressed && styles.pressed}>
+              <ThemedText type="linkPrimary">{hu.profile.refreshButton}</ThemedText>
+            </Pressable>
+          </ThemedView>
+
+          {isLoadingPersonality && !personality ? (
+            <PulsingLoader label={hu.profile.personalityLoading} />
+          ) : personalityError && !personality ? (
+            <ThemedText themeColor="textSecondary">{hu.profile.personalityError}</ThemedText>
+          ) : (
+            <ThemedText style={styles.personalityText}>{personality}</ThemedText>
+          )}
+        </ThemedView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -104,5 +165,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: Spacing.two,
+  },
+  personalityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  personalityText: {
+    lineHeight: 22,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });
